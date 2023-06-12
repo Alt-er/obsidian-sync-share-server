@@ -36,4 +36,4 @@ build/
 # notes
 .DS_Store
 user_store/
-src/main/resources/static
+src/main/resources/static/**
