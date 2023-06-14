@@ -12,3 +12,20 @@ Standard springboot project, import the idea can be started, does not depend on 
 # front-end
 
 Please compile the front-end project and place it in `src/main/resources/static/`
+
+
+# docker history
+```shell
+docker login
+
+docker tag obsidian-sync-share-server:1.0.0 alterzz/obsidian-sync-share-server:1.0.0
+
+docker tag obsidian-sync-share-server:1.0.0 alterzz/obsidian-sync-share-server:latest
+
+docker push alterzz/obsidian-sync-share-server:1.0.0
+
+docker push alterzz/obsidian-sync-share-server:latest
+
+```
+
+
