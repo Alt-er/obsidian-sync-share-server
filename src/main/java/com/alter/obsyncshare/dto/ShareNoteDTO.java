@@ -4,6 +4,7 @@ public class ShareNoteDTO {
 
     private String mainPath;
     private String title;
+    private Long expirationDate;
 
     public String getMainPath() {
         return mainPath;
@@ -21,11 +22,20 @@ public class ShareNoteDTO {
         this.title = title;
     }
 
+    public Long getExpirationDate() {
+        return expirationDate;
+    }
+
+    public void setExpirationDate(Long expirationDate) {
+        this.expirationDate = expirationDate;
+    }
+
     @Override
     public String toString() {
         return "ShareNoteDTO{" +
                 "mainPath='" + mainPath + '\'' +
                 ", title='" + title + '\'' +
+                ", expirationDate=" + expirationDate +
                 '}';
     }
 }

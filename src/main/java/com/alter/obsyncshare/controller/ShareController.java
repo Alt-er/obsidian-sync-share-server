@@ -2,6 +2,7 @@ package com.alter.obsyncshare.controller;
 
 
 import com.alter.obsyncshare.bo.FileInfo;
+import com.alter.obsyncshare.dto.ShareHistoryDTO;
 import com.alter.obsyncshare.dto.ShareNoteDTO;
 import com.alter.obsyncshare.session.UserSession;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,14 +18,14 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
+
+import static com.alter.obsyncshare.session.UserSession.userShareNoteMainPathFileName;
 
 @RestController
 @RequestMapping("/api/share")
-@CrossOrigin(origins = "app://obsidian.md")
+@CrossOrigin
 public class ShareController {
 
 
@@ -118,7 +119,7 @@ public class ShareController {
             } else {
                 List<Path> list = Files.list(dir).filter(path -> path.toFile().isDirectory()).collect(Collectors.toList());
                 for (Path path : list) {
-                    File find = breadthFirstSearch(path ,fileName);
+                    File find = breadthFirstSearch(path, fileName);
                     if (find != null) {
                         return find;
                     }
@@ -150,6 +151,19 @@ public class ShareController {
             return "Notes do not exist";
         }
 
+        String[] split = mainPath.split("\t");
+        mainPath = split[0];
+
+        if (split.length > 1) {
+            long expirationDate = Long.parseLong(split[1]);
+            if (expirationDate > 0 && System.currentTimeMillis() > expirationDate) {
+                // 过期了 删除目录
+                deleteFolder(userShareNoteMainPathFile.getParentFile());
+                return "Notes do not exist";
+            }
+        }
+
+
         Path userShareDirPath = userSession.getUserShareDir(username).toPath();
         // 分享的笔记放到这个下面了
         Path userShareNoteDirPath = userShareDirPath.resolve(shareLinkId);
@@ -160,7 +174,7 @@ public class ShareController {
         // 如果link不是空的
         if (link != null && !link.isBlank()) {
             File attachmentByLink = findAttachmentByLink(userShareNoteDirPath, absMainPath, link);
-            if (attachmentByLink.exists()) {
+            if (attachmentByLink != null && attachmentByLink.exists()) {
                 // 这里要判断类型 如果是图片就直接展示,如果是文件就下载,如果是md txt 则返回字符串
                 File file = attachmentByLink;
                 Path linkFilePath = attachmentByLink.toPath();
@@ -264,7 +278,7 @@ public class ShareController {
             Files.createDirectories(userShareNoteMainPath.getParent());
         }
 
-        Files.writeString(userShareNoteMainPath, otherInfo.getMainPath());
+        Files.writeString(userShareNoteMainPath, otherInfo.getMainPath() + "\t" + otherInfo.getExpirationDate());
 
         // 存入share记录
 //        File userShareLinksFile = userSession.getUserShareLinksFile(username);
@@ -304,6 +318,56 @@ public class ShareController {
         }
         return "delete successfully";
     }
+
+
+    @GetMapping("/shareHistory")
+    public List<ShareHistoryDTO> shareHistory(
+            HttpServletRequest request, HttpServletResponse response,
+            @RequestParam("path") String path
+    ) throws IOException {
+        String username = request.getHeader("username");
+        String token = request.getHeader("token");
+
+        userSession.checkUsernameAndToken(username, token);
+
+        File userShareDir = userSession.getUserShareDir(username);
+
+
+        List<ShareHistoryDTO> res = new ArrayList<>();
+
+        File[] files = userShareDir.listFiles(); // 获取文件夹下的所有文件
+        // 按照创建时间倒序排序
+        Arrays.sort(files, Comparator.comparingLong(File::lastModified).reversed());
+
+        // 打印文件列表
+        for (File file : files) {
+            if (file.isDirectory()) {
+                Path mainPathFileNamePath = file.toPath().resolve(userShareNoteMainPathFileName);
+                File mainPathFileNameFile = mainPathFileNamePath.toFile();
+
+                if (mainPathFileNameFile.exists() && mainPathFileNameFile.isFile()) {
+                    try {
+                        String s = Files.readString(mainPathFileNamePath);
+                        String[] split = s.split("\t");
+                        String tempPath = split[0];
+                        String expirationDate = split.length > 1 ? split[1] : "0"; // 2099年
+
+                        if ("0".equals(expirationDate)) {
+                            expirationDate = "4070880000151";
+                        }
+
+                        if (tempPath.equals(path)) {
+                            res.add(new ShareHistoryDTO("/share/" + username + "/" + file.getName(), new Date(Long.parseLong(expirationDate))));
+                        }
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+        return res;
+    }
+
 
     public static void deleteFolder(File folder) {
         if (folder.isDirectory()) {

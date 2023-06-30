@@ -20,9 +20,9 @@ public class UserConfiguration {
 
     @Bean("userSession")
     public UserSession createUserSession(){
-        ///Users/guoxiaomin/obsidian-plugin-test-server
+        // /Users/guoxiaomin/obsidian-plugin-test-server
         String ob_server_user_dir = environment.getProperty("OB_SERVER_USER_DIR");
-        if(ob_server_user_dir== null || ob_server_user_dir.isBlank()){
+        if(ob_server_user_dir == null || ob_server_user_dir.isBlank()){
             ob_server_user_dir = "user_store";
         }
         Path path = Paths.get(ob_server_user_dir);

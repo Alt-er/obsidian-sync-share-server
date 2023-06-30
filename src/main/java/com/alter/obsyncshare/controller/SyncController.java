@@ -1,10 +1,13 @@
 package com.alter.obsyncshare.controller;
 
 import com.alter.obsyncshare.bo.*;
+import com.alter.obsyncshare.dto.GitConfigDTO;
 import com.alter.obsyncshare.session.UserSession;
+import com.alter.obsyncshare.utils.GitUtil;
 import com.alter.obsyncshare.utils.LockUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.eclipse.jgit.api.errors.GitAPIException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,10 +17,12 @@ import org.springframework.web.util.UriUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Predicate;
@@ -25,7 +30,8 @@ import java.util.function.Predicate;
 
 @RestController
 @RequestMapping("/api/sync")
-@CrossOrigin(origins = "app://obsidian.md")
+//@CrossOrigin(origins = "app://obsidian.md")
+@CrossOrigin
 public class SyncController {
 
     private static final Logger logger =
@@ -62,18 +68,38 @@ public class SyncController {
 
     /**
      * 同步完成后调用此方法解锁
+     * 可选: 同步git
      *
      * @param request
      * @param response
      */
     @PostMapping("/syncCompleted")
-    public String syncCompleted(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    public String syncCompleted(HttpServletRequest request, HttpServletResponse response) throws IOException, GitAPIException, URISyntaxException {
 
         String username = request.getHeader("username");
         String token = request.getHeader("token");
 
         checkUsernameAndToken(username, token);
 
+        GitConfigDTO gitConfig = userSession.getGitConfig(username);
+        if (gitConfig.isSyncToLocalGit()) {
+            String userAgent = request.getHeader("User-Agent");
+
+            // git commit
+            File userVaultDir = userSession.getUserVaultDir(username);
+
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            String formattedDate = sdf.format(new Date());
+            GitUtil.commitAll(userVaultDir.toPath(), formattedDate, userAgent == null ? "" : userAgent , gitConfig.getMaximumCommitFileSize());
+
+            logger.debug("git commit executed successfully");
+
+            if (!gitConfig.getRemoteGitAddress().isBlank()) {
+                GitUtil.push(userVaultDir.toPath(), gitConfig.getRemoteGitAddress(), gitConfig.getRemoteGitUsername(), gitConfig.getRemoteGitAccessToken());
+                logger.debug("git push executed successfully");
+            }
+
+        }
         boolean unlock = userSession.unlock(username, token);
         if (unlock) {
             return "Unlocked successfully";
@@ -588,12 +614,12 @@ public class SyncController {
                 // 不要隐藏文件夹
                 if (!file.isHidden()) {
                     fileList.add(new FileInfo(relativePath, file.isFile() ? modifiedTime : 0));
+
+                    if (file.isDirectory()) {
+                        listFilesAndDirectories(file.getAbsolutePath(), basePath, fileList);
+                    }
                 }
 
-
-                if (file.isDirectory()) {
-                    listFilesAndDirectories(file.getAbsolutePath(), basePath, fileList);
-                }
             }
         }
     }

@@ -2,16 +2,20 @@ package com.alter.obsyncshare.session;
 
 
 import com.alter.obsyncshare.controller.UserController;
+import com.alter.obsyncshare.dto.GitConfigDTO;
 import com.alter.obsyncshare.utils.MD5Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 public class UserSession {
     private static final Logger logger =
@@ -22,6 +26,7 @@ public class UserSession {
     public static String tokenDirName = "tokens";
     public static String userinfoFileName = "userinfo";
     public static String syncLockFileName = "sync_lock";
+    public static String configFileName = "config";
     public static String vaultDirName = "vault";
     public static String shareDirName = "share";
     public static String serverDeleteHistoryFileName = "server_delete_history";
@@ -39,7 +44,6 @@ public class UserSession {
             file.createNewFile();
         }
         return file;
-
     }
 
     public File getUserDir(String username) {
@@ -49,6 +53,54 @@ public class UserSession {
             file.mkdirs();
         }
         return file;
+    }
+
+    public GitConfigDTO getGitConfig(String username) throws IOException {
+        File myUserDir = getUserDir(username);
+        File configFile = myUserDir.toPath().resolve(configFileName).toFile();
+        if (!configFile.exists()) {
+            configFile.createNewFile();
+        }
+        GitConfigDTO gitConfigDTO = new GitConfigDTO();
+//        gitConfigDTO.setRemoteGitAddress();
+        List<String> strings = Files.readAllLines(configFile.toPath());
+        strings.forEach(s -> {
+            if (!s.isBlank()) {
+                String[] split = s.split("\t");
+                if (split.length == 2) {
+                    if (split[0].equals("syncToLocalGit")) {
+                        gitConfigDTO.setSyncToLocalGit(Boolean.parseBoolean(split[1]));
+                    } else if (split[0].equals("maximumCommitFileSize")) {
+                        gitConfigDTO.setMaximumCommitFileSize(Integer.parseInt(split[1]));
+                    } else if (split[0].equals("remoteGitAddress")) {
+                        gitConfigDTO.setRemoteGitAddress(split[1]);
+                    } else if (split[0].equals("remoteGitUsername")) {
+                        gitConfigDTO.setRemoteGitUsername(split[1]);
+                    } else if (split[0].equals("remoteGitAccessToken")) {
+                        gitConfigDTO.setRemoteGitAccessToken(split[1]);
+                    }
+                }
+            }
+        });
+        return gitConfigDTO;
+    }
+
+    public void setGitConfig(String username, GitConfigDTO gitConfigDTO) throws IOException {
+        File myUserDir = getUserDir(username);
+        File configFile = myUserDir.toPath().resolve(configFileName).toFile();
+        if (!configFile.exists()) {
+            configFile.createNewFile();
+        }
+
+        List<String> list = new ArrayList<>();
+        list.add("syncToLocalGit\t" + Boolean.toString(gitConfigDTO.isSyncToLocalGit()));
+        list.add("maximumCommitFileSize\t" + gitConfigDTO.getMaximumCommitFileSize());
+        list.add("remoteGitAddress\t" + gitConfigDTO.getRemoteGitAddress());
+        list.add("remoteGitUsername\t" + gitConfigDTO.getRemoteGitUsername());
+        list.add("remoteGitAccessToken\t" + gitConfigDTO.getRemoteGitAccessToken());
+
+        String collect = list.stream().collect(Collectors.joining("\n"));
+        Files.writeString(configFile.toPath(), collect);
     }
 
     public File getUserVaultDir(String username) {
@@ -72,7 +124,6 @@ public class UserSession {
 
     public Path getUserShareNoteMainPath(String username, String shareLinkId) throws IOException {
         return getUserShareDir(username).toPath().resolve(shareLinkId).resolve(userShareNoteMainPathFileName);
-
     }
 
     private File getUserTokenDir(String username) {
@@ -131,6 +182,17 @@ public class UserSession {
             String s = Files.readString(lockFile.toPath());
             if (s.equals(token)) {
                 return true;
+            } else {
+                // 如果时间太久也解锁
+                long lastModified = lockFile.lastModified();
+                long currentTime = System.currentTimeMillis();
+                long timeDifference = currentTime - lastModified;
+                long halfHourInMillis = 30 * 60 * 1000; // 半小时的毫秒数
+                if (timeDifference > halfHourInMillis) {
+                    // 删除锁 ,重新创建锁
+                    lockFile.delete();
+                    return createLock(username, token);
+                }
             }
         } else {
             return createLock(username, token);

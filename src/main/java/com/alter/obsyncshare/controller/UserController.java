@@ -1,23 +1,24 @@
 package com.alter.obsyncshare.controller;
 
+import com.alter.obsyncshare.dto.GitConfigDTO;
 import com.alter.obsyncshare.dto.LoginDTO;
 import com.alter.obsyncshare.session.UserSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.util.Random;
 
 @RestController
 @RequestMapping("/api/user")
-@CrossOrigin(origins = "app://obsidian.md")
+@CrossOrigin
 public class UserController {
 
 
-    private static final Logger logger =
-            LoggerFactory.getLogger(UserController.class);
+    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
 
     @Autowired
@@ -25,9 +26,7 @@ public class UserController {
 
 
     @PostMapping("/login")
-    public String login(
-            @RequestBody LoginDTO loginDTO
-    ) throws IOException {
+    public String login(@RequestBody LoginDTO loginDTO) throws IOException {
 
         logger.debug("用户:{}正在尝试登录", loginDTO.getUsername());
 
@@ -40,12 +39,42 @@ public class UserController {
         }
     }
 
-    @PostMapping("/test")
-    public String test(
-    ) throws IOException, InterruptedException {
+    @PostMapping("/updateGitConfig")
+    public String updateGitConfig(HttpServletRequest request, HttpServletResponse response, @RequestBody GitConfigDTO gitConfigDTO) throws IOException, InterruptedException {
+        String username = request.getHeader("username");
+        String token = request.getHeader("token");
+        checkUsernameAndToken(username, token);
 
-        Thread.sleep(new Random().nextInt(new Random().nextInt(5) + 1)*1000);
+        userSession.setGitConfig(username, gitConfigDTO);
+
+        GitConfigDTO gitConfig = userSession.getGitConfig(username);
+
+        logger.debug("gitConfig:" + gitConfig);
+
+        return "Git configuration update successful";
+    }
+
+    @PostMapping("/getGitConfig")
+    public GitConfigDTO getGitConfig(HttpServletRequest request, HttpServletResponse response) throws IOException, InterruptedException {
+        String username = request.getHeader("username");
+        String token = request.getHeader("token");
+        checkUsernameAndToken(username, token);
+
+        GitConfigDTO gitConfig = userSession.getGitConfig(username);
+
+        logger.debug("gitConfig:" + gitConfig);
+
+        return gitConfig;
+    }
+
+    @PostMapping("/test")
+    public String test() throws IOException, InterruptedException {
+
         return "111";
     }
 
+
+    private void checkUsernameAndToken(String username, String token) throws IOException {
+        userSession.checkUsernameAndToken(username, token);
+    }
 }
