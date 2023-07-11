@@ -10,7 +10,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 @RestController
 @RequestMapping("/api/user")
@@ -69,8 +73,44 @@ public class UserController {
 
     @PostMapping("/test")
     public String test() throws IOException, InterruptedException {
-
         return "111";
+    }
+
+    @GetMapping("/getNewVersion")
+    public String getNewVersion() throws IOException, InterruptedException {
+        //const res = await fetch("https://hub.docker.com/v2/repositories/alterzz/obsidian-sync-share-server/tags")
+        try {
+            // 创建URL对象
+            URL url = new URL("https://hub.docker.com/v2/repositories/alterzz/obsidian-sync-share-server/tags");
+            // 打开连接
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            // 设置请求方法为GET
+            connection.setRequestMethod("GET");
+            // 获取响应代码
+            int responseCode = connection.getResponseCode();
+            // 判断请求是否成功
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                // 读取响应内容
+                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                String line;
+                StringBuilder response = new StringBuilder();
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+                reader.close();
+                // 打印响应内容
+//              System.out.println(response.toString());
+                return response.toString();
+            } else {
+                logger.error("请求失败，响应代码：" + responseCode);
+            }
+
+            // 关闭连接
+            connection.disconnect();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null ;
     }
 
 
