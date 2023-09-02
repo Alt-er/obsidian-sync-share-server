@@ -63,7 +63,6 @@ public class GitUtil {
         try (Git git = getGit(path)) {
             // 获取当前仓库的状态
             Status status = git.status().call();
-
             // 遍历工作目录下的所有文件
             for (String filePath : status.getUntracked()) {
                 File file = new File(git.getRepository().getWorkTree(), filePath);
@@ -86,6 +85,16 @@ public class GitUtil {
                 git.add().addFilepattern(filePath).call();
             }
             for (String filePath : status.getRemoved()) {
+                // 添加文件到暂存区
+                git.add().addFilepattern(filePath).call();
+            }
+
+            for (String filePath : status.getMissing()) {
+                // 删除文件
+                git.rm().addFilepattern(filePath).call();
+            }
+
+            for (String filePath : status.getChanged()) {
                 // 添加文件到暂存区
                 git.add().addFilepattern(filePath).call();
             }
