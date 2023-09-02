@@ -16,15 +16,15 @@ Please compile the front-end project and place it in `src/main/resources/static/
 
 # docker history
 ```shell
-docker build -t obsidian-sync-share-server:1.1.7 .
+docker build -t obsidian-sync-share-server:1.1.8 .
 
 docker login
 
-docker tag obsidian-sync-share-server:1.1.7 alterzz/obsidian-sync-share-server:1.1.7
+docker tag obsidian-sync-share-server:1.1.8 alterzz/obsidian-sync-share-server:1.1.8
 
-docker tag obsidian-sync-share-server:1.1.7 alterzz/obsidian-sync-share-server:latest
+docker tag obsidian-sync-share-server:1.1.8 alterzz/obsidian-sync-share-server:latest
 
-docker push alterzz/obsidian-sync-share-server:1.1.7
+docker push alterzz/obsidian-sync-share-server:1.1.8
 
 docker push alterzz/obsidian-sync-share-server:latest
 
