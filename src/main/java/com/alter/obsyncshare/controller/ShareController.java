@@ -253,7 +253,13 @@ public class ShareController {
 
         Path userShareDirPath = userSession.getUserShareDir(username).toPath();
 
-        String shareLinkId = UUID.randomUUID().toString();
+        String shareLinkId = (otherInfo.getShareLinkId() == null ||
+                otherInfo.getShareLinkId().isBlank()) ?
+                UUID.randomUUID().toString() : otherInfo.getShareLinkId();
+
+        if (userSession.containsIllegalCharacters(shareLinkId)) {
+            throw new RuntimeException("Invalid input");
+        }
 
         // 这个分享的笔记放到这个下面
         Path userShareNoteDirPath = userShareDirPath.resolve(shareLinkId);
@@ -278,7 +284,7 @@ public class ShareController {
             Files.createDirectories(userShareNoteMainPath.getParent());
         }
 
-        Files.writeString(userShareNoteMainPath, otherInfo.getMainPath() + "\t" + otherInfo.getExpirationDate());
+        Files.writeString(userShareNoteMainPath, otherInfo.getMainPath() + "\t" + otherInfo.getExpirationDate()+ "\t" + otherInfo.getHeaderPosition());
 
         // 存入share记录
 //        File userShareLinksFile = userSession.getUserShareLinksFile(username);
@@ -286,9 +292,8 @@ public class ShareController {
 //        strings.add(shareLinkId + "\t" + new FileInfo(otherInfo.getMainPath(), 0).getPath());
 //        Files.write(userShareLinksFile.toPath(), strings);
 
-        return "/share/" + username + "/" + shareLinkId;
+        return "/share/" + username + "/" + shareLinkId+"?headerPosition="+otherInfo.getHeaderPosition();
     }
-
 
     @PostMapping("/delete")
     public String delete(
@@ -308,13 +313,13 @@ public class ShareController {
         if (Files.exists(userShareNoteDir)) {
             // 删除文件比较重要 多加一层校验 避免有其他注入漏洞
             Path userDirPath = userSession.getUserDir(username).toPath().normalize();
-            Path userDirParentPath = userSession.getUserDir("test").toPath().getParent().normalize();
+            Path userDirParentPath = userSession.getUserDir(username).toPath().getParent().normalize();
             Path normalize = userShareNoteDir.normalize();
             // 确定是在用户目录下  这样风险降低到最小
             if (normalize.startsWith(userDirParentPath) && normalize.startsWith(userDirPath)) {
                 deleteFolder(userShareNoteDir.toFile());
+                logger.debug("delete share notes, path:{} ", userShareNoteDir.toString());
             }
-            logger.debug("delete share notes, path:{} ", userShareNoteDir.toString());
         }
         return "delete successfully";
     }
@@ -351,13 +356,13 @@ public class ShareController {
                         String[] split = s.split("\t");
                         String tempPath = split[0];
                         String expirationDate = split.length > 1 ? split[1] : "0"; // 2099年
-
+                        String headerPosition = split.length > 2 ? split[2] : "";
                         if ("0".equals(expirationDate)) {
                             expirationDate = "4070880000151";
                         }
 
                         if (tempPath.equals(path)) {
-                            res.add(new ShareHistoryDTO("/share/" + username + "/" + file.getName(), new Date(Long.parseLong(expirationDate))));
+                            res.add(new ShareHistoryDTO("/share/" + username + "/" + file.getName()+"?headerPosition="+headerPosition, new Date(Long.parseLong(expirationDate))));
                         }
                     } catch (IOException e) {
                         e.printStackTrace();

@@ -5,6 +5,8 @@ public class ShareNoteDTO {
     private String mainPath;
     private String title;
     private Long expirationDate;
+    private String headerPosition;
+    private String shareLinkId;
 
     public String getMainPath() {
         return mainPath;
@@ -30,12 +32,30 @@ public class ShareNoteDTO {
         this.expirationDate = expirationDate;
     }
 
+    public String getHeaderPosition() {
+        return headerPosition;
+    }
+
+    public void setHeaderPosition(String headerPosition) {
+        this.headerPosition = headerPosition;
+    }
+
+    public String getShareLinkId() {
+        return shareLinkId;
+    }
+
+    public void setShareLinkId(String shareLinkId) {
+        this.shareLinkId = shareLinkId;
+    }
+
     @Override
     public String toString() {
         return "ShareNoteDTO{" +
                 "mainPath='" + mainPath + '\'' +
                 ", title='" + title + '\'' +
                 ", expirationDate=" + expirationDate +
+                ", headerPosition='" + headerPosition + '\'' +
+                ", shareLinkId='" + shareLinkId + '\'' +
                 '}';
     }
 }
