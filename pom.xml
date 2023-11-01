@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.alter</groupId>
 	<artifactId>obsidian-sync-share-server</artifactId>
-	<version>1.1.9</version>
+	<version>1.2.0</version>
 	<name>obsidian-sync-share-server</name>
 	<description>Sync and share your notes.</description>
 	<properties>
