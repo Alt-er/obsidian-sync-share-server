@@ -18,7 +18,6 @@ import org.springframework.web.util.UriUtils;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.net.URLEncoder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -100,7 +99,10 @@ public class SyncController {
             }
 
         }
-        boolean unlock = userSession.unlock(username, token);
+        // 获取lock
+        String syncLockValue = request.getHeader("syncLockValue");
+        syncLockValue = syncLockValue == null || syncLockValue.isBlank() ?  token :syncLockValue;
+        boolean unlock = userSession.unlock(username, syncLockValue);
         if (unlock) {
             return "Unlocked successfully";
         } else {
@@ -234,11 +236,21 @@ public class SyncController {
         return "sync successfully";
     }
 
+    // 配置文件同步时重命名的名字
+    final private  static String obsidianConfigDirRename = "___obsidian_config_dir_data___";
+
     @PostMapping("/diff")
     public Diff diff(HttpServletRequest request, HttpServletResponse response, @RequestBody Map<String, String[][]> requestBody) throws IOException {
 
         String username = request.getHeader("username");
         String token = request.getHeader("token");
+        String syncConfigDirStr = request.getHeader("syncConfigDir");
+        boolean syncConfigDir = Boolean.valueOf(syncConfigDirStr);
+        response.setHeader("syncConfigDir" , syncConfigDirStr);
+        response.setHeader("Access-Control-Expose-Headers", "syncConfigDir");
+        // 获取lock
+        String syncLockValue = request.getHeader("syncLockValue");
+        syncLockValue = syncLockValue == null || syncLockValue.isBlank() ?  token :syncLockValue;
 
         checkUsernameAndToken(username, token);
 
@@ -248,7 +260,7 @@ public class SyncController {
             throw new RuntimeException("Other clients are in the process of synchronization, please try again later");
         }
         try {
-            boolean localLock = userSession.lock(username, token);
+            boolean localLock = userSession.lock(username, syncLockValue);
             if (localLock) {
                 String[][] fileInfos = requestBody.get("fileInfos");
                 String[][] deleteHistory = requestBody.get("deleteHistory");
@@ -295,7 +307,7 @@ public class SyncController {
                 serverDeleteHistoryList.forEach(dh -> {
                     serverDeleteHistorySet.add(dh.getPath());
                 });
-                List<FullOuterJoinWarpper> fullOuterJoinWarppers = fullOuterJoin(clientFileInfoList, serverFileInfoList, clientDeleteHistoryList, serverDeleteHistoryList);
+                List<FullOuterJoinWarpper> fullOuterJoinWarppers = fullOuterJoin(clientFileInfoList, serverFileInfoList, clientDeleteHistoryList, serverDeleteHistoryList ,syncConfigDir);
                 Diff diff = generateDiffAction(fullOuterJoinWarppers, clientDeleteHistorySet, serverDeleteHistorySet);
 
 //                printFullOuterJoinTable(fullOuterJoinWarppers);
@@ -523,9 +535,13 @@ public class SyncController {
     }
 
 
-    private List<FullOuterJoinWarpper> fullOuterJoin(List<FileInfo> clientFileInfoList, List<FileInfo> serverFileInfoList, List<DeleteHistory> clientDeleteHistoryList, List<DeleteHistory> serverDeleteHistoryList) {
+    private List<FullOuterJoinWarpper> fullOuterJoin(List<FileInfo> clientFileInfoList, List<FileInfo> serverFileInfoList, List<DeleteHistory> clientDeleteHistoryList, List<DeleteHistory> serverDeleteHistoryList, boolean syncConfigDir) {
         List<FullOuterJoinWarpper> fullOuterJoinTable = new ArrayList<>(clientFileInfoList.size() * 2);
         clientFileInfoList.forEach(cfi -> {
+            // 不同步配置文件夹则跳过
+            if(!syncConfigDir && cfi.getPath().startsWith(obsidianConfigDirRename)){
+               return;
+            }
             FileInfo serverFileInfo = listRemoveFirstAndGet(serverFileInfoList, info ->
                     info.getPath().equals(cfi.getPath())
             );
@@ -543,6 +559,10 @@ public class SyncController {
 
         // 处理剩余的
         serverFileInfoList.forEach(sfi -> {
+            // 不同步配置文件夹则跳过
+            if(!syncConfigDir && sfi.getPath().startsWith(obsidianConfigDirRename)){
+                return;
+            }
             DeleteHistory clientDeleteHistory = listRemoveFirstAndGet(clientDeleteHistoryList, info ->
                     info.getPath().equals(sfi.getPath())
             );
@@ -556,6 +576,10 @@ public class SyncController {
 
         // 处理剩余的
         clientDeleteHistoryList.forEach(cdh -> {
+            // 不同步配置文件夹则跳过
+            if(!syncConfigDir && cdh.getPath().startsWith(obsidianConfigDirRename)){
+                return;
+            }
             DeleteHistory serverDeleteHistory = listRemoveFirstAndGet(serverDeleteHistoryList, info ->
                     info.getPath().equals(cdh.getPath())
             );
@@ -564,9 +588,12 @@ public class SyncController {
 
         // 处理剩余的
         serverDeleteHistoryList.forEach(sdh -> {
+            // 不同步配置文件夹则跳过
+            if(!syncConfigDir && sdh.getPath().startsWith(obsidianConfigDirRename)){
+                return;
+            }
             fullOuterJoinTable.add(new FullOuterJoinWarpper(sdh.getPath(), null, null, null, sdh));
         });
-
 
         return fullOuterJoinTable;
 
