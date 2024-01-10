@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -229,6 +230,11 @@ public class UserSession {
             if (s.split("\t")[0].equals(username)) {
                 return false;
             }
+        }
+
+        // 如果存在registration_lock文件则禁止注册
+        if(Files.exists(Paths.get("registration_lock"))){
+            return false;
         }
 
         logger.debug("账号:{}/{}不存在,创建该账号", username, password);
