@@ -45,7 +45,7 @@ EXPOSE 8080
 ENV JAVA_OPTS=""
 
 # 执行启动命令
-ENTRYPOINT ["sh", "-c", "touch /tmp/healthy; java $JAVA_OPTS -jar obsidian-sync-share-server.jar"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar obsidian-sync-share-server.jar"]
 
 
 
