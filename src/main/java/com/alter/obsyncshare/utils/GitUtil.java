@@ -63,6 +63,8 @@ public class GitUtil {
         try (Git git = getGit(path)) {
             // 获取当前仓库的状态
             Status status = git.status().call();
+            // 不需要 commit
+            if(status.isClean()) return;
             // 遍历工作目录下的所有文件
             for (String filePath : status.getUntracked()) {
                 File file = new File(git.getRepository().getWorkTree(), filePath);
